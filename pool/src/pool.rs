@@ -15,7 +15,7 @@ use substrate_primitives::{KeccakHasher, RlpCodec};
 use substrate_client::{self, Client};
 
 
-use extrinsic_pool::{
+pub use extrinsic_pool::{
     Pool,
     ChainApi,
     VerifiedFor,
