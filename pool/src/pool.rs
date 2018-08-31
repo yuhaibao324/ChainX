@@ -90,6 +90,17 @@ impl BlindCheckable for VerifiedExtrinsic {
 	}
 }
 
+fn index(at: &BlockId, _account: AccountId) -> u64 {
+	(_account[0] as u64) + number_of(at)
+}
+
+fn number_of(at: &BlockId) -> u64 {
+	match at {
+		generic::BlockId::Number(n) => *n as u64,
+		_ => 0,
+	}
+}
+
 pub struct PoolApi;
 impl PoolApi {
     pub fn default() -> Self {
@@ -116,7 +127,7 @@ impl ChainApi for PoolApi {
 		let hash = BlakeTwo256::hash(&uxt.encode());
 		let xt = uxt.clone();
 		Ok(VerifiedExtrinsic {
-			sender: hash,	//error
+			sender: hash,	//error TODO
 			hash,
 		})
 	}
@@ -130,27 +141,58 @@ impl ChainApi for PoolApi {
 
     fn is_ready(
         &self,
-        _at: &BlockId,
-        _nonce_cache: &mut Self::Ready,
-        _xt: &VerifiedFor<Self>,
+        at: &BlockId,
+        nonce_cache: &mut Self::Ready,
+        xt: &VerifiedFor<Self>,
     ) -> Readiness {
-        unimplemented!()
+    
+		let sender = xt.verified.sender;
+		
+		
+		let next_index = nonce_cache.entry(sender)
+			.or_insert_with(|| index(at, sender));
+		// TODO
+		/*
+		let result = match xt.original.transfer.nonce.cmp(&next_index) {
+			Ordering::Greater => Readiness::Future,
+			Ordering::Equal => Readiness::Ready,
+			Ordering::Less => Readiness::Stale,
+		};
+		*/
+		
+		let result = Readiness::Ready;
+		// remember to increment `next_index`
+		*next_index = next_index.saturating_add(1);
+
+		result
     }
 
-    fn compare(_old: &VerifiedFor<Self>, _other: &VerifiedFor<Self>) -> Ordering {
-        unimplemented!()
-    }
+	fn compare(old: &VerifiedFor<Self>, other: &VerifiedFor<Self>) -> Ordering {
+		//old.original.transfer.nonce.cmp(&other.original.transfer.nonce) TODO
+		Ordering::Greater
+	}
 
-    fn choose(_old: &VerifiedFor<Self>, _new: &VerifiedFor<Self>) -> scoring::Choice {
-        unimplemented!()
-    }
+	fn choose(old: &VerifiedFor<Self>, new: &VerifiedFor<Self>) -> scoring::Choice {
+		//TODO
+		/*
+		assert!(new.verified.sender == old.verified.sender, "Scoring::choose called with transactions from different senders");
+		if old.original.transfer.nonce == new.original.transfer.nonce {
+			return scoring::Choice::RejectNew;
+		}
+		*/
+		
+		scoring::Choice::InsertNew
+	}
+
 
     fn update_scores(
-        _xts: &[Transaction<VerifiedFor<Self>>],
-        _scores: &mut [Self::Score],
+        xts: &[Transaction<VerifiedFor<Self>>],
+        scores: &mut [Self::Score],
         _change: scoring::Change<()>,
     ) {
-        unimplemented!()
+			for i in 0..xts.len() {
+				scores[i] = 100;	//_xts[i].original.transfer.amount; TODO
+			}
     }
 
     fn should_replace(_old: &VerifiedFor<Self>, _new: &VerifiedFor<Self>) -> scoring::Choice {
