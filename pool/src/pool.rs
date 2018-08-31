@@ -10,7 +10,8 @@ use std::{
 
 use codec::{Encode, Decode};
 use chainx_runtime::{Address, UncheckedExtrinsic};
-use runtime_primitives::traits::{Checkable};
+use runtime_primitives;
+use runtime_primitives::{generic, traits::{Hash as HashT, BlindCheckable, BlakeTwo256}};
 use substrate_primitives::{KeccakHasher, RlpCodec};
 use substrate_client::{self, Client};
 
@@ -31,6 +32,7 @@ use extrinsic_pool::{
 
 use substrate_network;
 use chainx_primitives::{Block, Hash, BlockId, AccountId};
+/*
 pub type CheckedExtrinsic =
     <UncheckedExtrinsic as Checkable<
         fn(Address)
@@ -39,6 +41,7 @@ pub type CheckedExtrinsic =
             &'static str,
         >,
     >>::Checked;
+    */
 pub type Backend = substrate_client::in_mem::Backend<Block, KeccakHasher, RlpCodec>;
 use chainx_executor;
 pub type Executor = substrate_client::LocalCallExecutor<
@@ -47,10 +50,12 @@ pub type Executor = substrate_client::LocalCallExecutor<
 >;
 use substrate_executor::NativeExecutor;
 
+
+
 #[derive(Debug, Clone)]
 pub struct VerifiedExtrinsic {
-    sender: AccountId,
-    hash: Hash,
+    pub sender: AccountId,
+    pub hash: Hash,
 }
 
 pub struct Scoring;
@@ -72,13 +77,27 @@ impl VerifiedTransaction for VerifiedExtrinsic {
     }
 }
 
+impl BlindCheckable for VerifiedExtrinsic {
+	type Checked = Self;
+
+	fn check(self) -> Result<Self, &'static str> {
+		// runtime_primitives::verify_encoded_lazy(&self.signature, &self.transfer, &self.transfer.from) {
+		if true {
+			Ok(self)
+		} else {
+			Err("bad signature")
+		}
+	}
+}
 
 pub struct PoolApi;
 impl PoolApi {
     pub fn default() -> Self {
         PoolApi
     }
+	
 }
+
 impl ChainApi for PoolApi {
     type Block = Block;
     type Hash = Hash;
@@ -89,13 +108,19 @@ impl ChainApi for PoolApi {
     type Score = u64;
     type Event = ();
 
-    fn verify_transaction(
-        &self,
-        _at: &BlockId,
-        _uxt: &ExtrinsicFor<Self>,
-    ) -> Result<Self::VEx, Self::Error> {
-        unimplemented!()
-    }
+
+	fn verify_transaction(&self, at: &BlockId, xt: &ExtrinsicFor<Self>) -> Result<Self::VEx, Self::Error> {
+		let encoded = xt.encode();
+		let uxt = UncheckedExtrinsic::decode(&mut encoded.as_slice());
+
+		let hash = BlakeTwo256::hash(&uxt.encode());
+		let xt = uxt.clone();
+		Ok(VerifiedExtrinsic {
+			sender: hash,	//error
+			hash,
+		})
+	}
+	
 
     fn ready(&self) -> Self::Ready {
 
