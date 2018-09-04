@@ -17,6 +17,7 @@ substrate-runtime-io = { git = "https://github.com/chainx-org/substrate" }
 substrate-runtime-support = { git = "https://github.com/chainx-org/substrate" }
 substrate-primitives = { git = "https://github.com/chainx-org/substrate" }
 substrate-keyring = { git = "https://github.com/chainx-org/substrate" }
+substrate-runtime-balances = { git = "https://github.com/chainx-org/substrate" }
 substrate-runtime-consensus = { git = "https://github.com/chainx-org/substrate" }
 substrate-runtime-council = { git = "https://github.com/chainx-org/substrate" }
 substrate-runtime-democracy = { git = "https://github.com/chainx-org/substrate" }

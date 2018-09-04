@@ -10,6 +10,7 @@ extern crate substrate_rpc_servers as rpc_server;
 extern crate substrate_client_db as client_db;
 extern crate substrate_state_machine as state_machine;
 extern crate substrate_state_db as state_db;
+extern crate substrate_keyring as keyring;
 
 extern crate chainx_primitives;
 extern crate chainx_executor;
@@ -176,7 +177,7 @@ fn main() {
 
     let executor = client::LocalCallExecutor::new(
         backend.clone(),
-        NativeExecutor::<chainx_executor::Executor>::with_heap_pages(8));
+        NativeExecutor::new());
     let genesis_config = genesis_config::testnet_genesis();
 
     let client = Arc::new(
