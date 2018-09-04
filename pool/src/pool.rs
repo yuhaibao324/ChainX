@@ -12,6 +12,7 @@ use codec::{Encode, Decode};
 use chainx_runtime::{Address, UncheckedExtrinsic};
 use runtime_primitives::traits::{Checkable};
 use substrate_primitives::{KeccakHasher, RlpCodec};
+use runtime_primitives::{generic, traits::{Hash as HashT, BlindCheckable, BlakeTwo256}};
 use substrate_client::{self, Client};
 
 
@@ -27,6 +28,7 @@ pub use extrinsic_pool::{
     Error,
     ErrorKind,
     Options,
+    scoring::{Change, Choice},
 };
 
 use substrate_network;
@@ -49,15 +51,31 @@ use substrate_executor::NativeExecutor;
 
 #[derive(Debug, Clone)]
 pub struct VerifiedExtrinsic {
-    sender: AccountId,
+    sender: Hash,
     hash: Hash,
+    encoded_size: usize,
 }
 
 pub struct Scoring;
 
+impl VerifiedExtrinsic {
+    /// Get the 256-bit hash of this transaction.
+    pub fn hash(&self) -> &Hash {
+        &self.hash
+    }
+    /// Get encoded size of the transaction.
+    pub fn encoded_size(&self) -> usize {
+        self.encoded_size
+    }
+    /// Get the account ID of the sender of this transaction.
+    pub fn sender(&self) -> Option<Hash> {
+        Some(self.sender)
+    }
+}
+
 impl VerifiedTransaction for VerifiedExtrinsic {
     type Hash = Hash;
-    type Sender = AccountId;
+    type Sender = Hash;
 
     fn hash(&self) -> &Self::Hash {
         &self.hash
@@ -68,7 +86,7 @@ impl VerifiedTransaction for VerifiedExtrinsic {
     }
 
     fn mem_usage(&self) -> usize {
-        0
+        self.encoded_size
     }
 }
 
@@ -82,9 +100,9 @@ impl PoolApi {
 impl ChainApi for PoolApi {
     type Block = Block;
     type Hash = Hash;
-    type Sender = AccountId;
+    type Sender = Hash;
     type VEx = VerifiedExtrinsic;
-    type Ready = HashMap<AccountId, u64>;
+    type Ready = HashMap<Hash, u64>;
     type Error = Error;
     type Score = u64;
     type Event = ();
@@ -92,9 +110,16 @@ impl ChainApi for PoolApi {
     fn verify_transaction(
         &self,
         _at: &BlockId,
-        _uxt: &ExtrinsicFor<Self>,
+        uxt: &ExtrinsicFor<Self>,
     ) -> Result<Self::VEx, Self::Error> {
-        unimplemented!()
+        let encoded = uxt.encode();
+        let (encoded_size, hash) = (encoded.len(), BlakeTwo256::hash(&encoded));
+        Ok(VerifiedExtrinsic{
+            sender:hash,
+            hash,
+            encoded_size,
+        }
+        )
     }
 
     fn ready(&self) -> Self::Ready {
@@ -109,27 +134,25 @@ impl ChainApi for PoolApi {
         _nonce_cache: &mut Self::Ready,
         _xt: &VerifiedFor<Self>,
     ) -> Readiness {
-        unimplemented!()
+        Readiness::Ready
     }
 
     fn compare(_old: &VerifiedFor<Self>, _other: &VerifiedFor<Self>) -> Ordering {
-        unimplemented!()
+        Ordering::Less
     }
 
     fn choose(_old: &VerifiedFor<Self>, _new: &VerifiedFor<Self>) -> scoring::Choice {
-        unimplemented!()
+        Choice::InsertNew
     }
 
     fn update_scores(
         _xts: &[Transaction<VerifiedFor<Self>>],
         _scores: &mut [Self::Score],
         _change: scoring::Change<()>,
-    ) {
-        unimplemented!()
-    }
+    ) {}
 
     fn should_replace(_old: &VerifiedFor<Self>, _new: &VerifiedFor<Self>) -> scoring::Choice {
-        unimplemented!()
+        Choice::InsertNew
     }
 }
 
@@ -172,6 +195,7 @@ impl substrate_network::TransactionPool<Hash, Block> for TransactionPool {
                     .map(|t| {
                         let hash = t.hash().clone();
                         let ex = t.original.clone();
+                        println!("--------txhash:{:?}--txdata:{:?}---------",hash,ex);
                         (hash, ex)
                     })
                     .collect()

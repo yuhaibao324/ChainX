@@ -32,6 +32,7 @@ use substrate_network::specialization::Specialization;
 use substrate_network::{NodeIndex, Context, message};
 use substrate_network::StatusMessage as GenericFullStatus;
 use substrate_runtime_primitives::generic;
+use substrate_network::TransactionPool as TPool;
 use chainx_primitives::{Block, Header, Hash};
 use chainx_runtime::{GenesisConfig, ConsensusConfig, CouncilConfig, DemocracyConfig,
                      SessionConfig, StakingConfig, TimestampConfig};
@@ -197,6 +198,9 @@ pub fn fake_justify(header: &Header) -> bft::UncheckedJustification<Hash> {
     )
 }
 
+// block size limit.
+const MAX_TRANSACTIONS_SIZE: usize = 4 * 1024 * 1024;
+
 //#[warn(unused_must_use)]
 fn main() {
     let matches = App::new("chainx")
@@ -290,6 +294,7 @@ fn main() {
     let network = NetworkService::new(param, DOT_PROTOCOL_ID).unwrap();
 
     let interval = Interval::new(Instant::now(), Duration::from_millis(TIMER_INTERVAL_MS));
+    let _txhash = extrinsic_pool.clone().import(&vec![1u8, 2]).unwrap();
     let transaction_pool = extrinsic_pool.inner.clone();
     let work = interval
         .map_err(|e| debug!("Timer error: {:?}", e))
@@ -299,29 +304,32 @@ fn main() {
             if let Some(_) = matches.subcommand_matches("validator") {
                 let mut builder = client.new_block().unwrap();
                 {
-                  //  let txhash = transaction_pool.import(&vec![1u8, 2]).unwrap();
                     let mut unqueue_invalid = Vec::new();
                     let result = transaction_pool.cull_and_get_pending(&BlockId::hash(best_header.hash()), |pending_iterator| {
-                     //   let mut pending_size = 0;
+//                        let mut pending_size = 0;
+                        let pending_size = 0;
                         for pending in pending_iterator {
-                            // skip and cull transactions which are too large.
-//                            if pending.encoded_size() > MAX_TRANSACTIONS_SIZE {
-//                                unqueue_invalid.push(pending.hash().clone());
-//                                continue
-//                            }
-//
-//                            if pending_size + pending.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
-                            //match block_builder.push_extrinsic(pending.primitive_extrinsic()) {
-                            match builder.push(pending.original.clone()) {
-                                Ok(()) => {
-                               //     pending_size += pending.encoded_size();
-                                    println!("push transaction: {}",pending.hash().clone());
-                                }
-                                Err(e) => {
-                                    trace!(target: "transaction-pool", "Invalid transaction: {}", e);
-                                    unqueue_invalid.push(pending.hash().clone());
-                                }
+                             //skip and cull transactions which are too large.
+                            if pending.verified.encoded_size() > MAX_TRANSACTIONS_SIZE {
+                                unqueue_invalid.push(pending.hash().clone());
+                                continue
                             }
+
+                            if pending_size + pending.verified.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
+
+                            println!("push transaction: {}",pending.hash().clone());
+                            println!("transaction origin data: {:?}",pending.original.clone());
+
+//                            match builder.push(pending.original.clone()) {
+//                                Ok(()) => {
+//                                    pending_size += pending.verified.encoded_size();
+//                                    println!("push transaction: {}",pending.hash().clone());
+//                                }
+//                                Err(e) => {
+//                                    trace!(target: "transaction-pool", "Invalid transaction: {}", e);
+//                                    unqueue_invalid.push(pending.hash().clone());
+//                                }
+//                            }
                         }
                     });
                     if let Err(e) = result {
