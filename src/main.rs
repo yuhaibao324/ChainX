@@ -7,6 +7,8 @@ extern crate substrate_primitives;
 extern crate substrate_client as client;
 extern crate substrate_bft as bft;
 extern crate substrate_rpc_servers as rpc_server;
+extern crate substrate_codec;
+extern crate substrate_runtime_staking as staking;
 
 extern crate chainx_primitives;
 extern crate chainx_executor;
@@ -35,7 +37,8 @@ use substrate_runtime_primitives::generic;
 use substrate_network::TransactionPool as TPool;
 use chainx_primitives::{Block, Header, Hash};
 use chainx_runtime::{GenesisConfig, ConsensusConfig, CouncilConfig, DemocracyConfig,
-                     SessionConfig, StakingConfig, TimestampConfig};
+                     SessionConfig, StakingConfig, TimestampConfig,UncheckedExtrinsic,Extrinsic,Concrete,Call};
+use substrate_codec::Joiner;
 
 use futures::{Future, Stream};
 use tokio::runtime::Runtime;
@@ -294,7 +297,13 @@ fn main() {
     let network = NetworkService::new(param, DOT_PROTOCOL_ID).unwrap();
 
     let interval = Interval::new(Instant::now(), Duration::from_millis(TIMER_INTERVAL_MS));
-    let _txhash = extrinsic_pool.clone().import(&vec![1u8, 2]).unwrap();
+    let _txhash = extrinsic_pool.clone().import(&vec![].and(&UncheckedExtrinsic::new(
+        Extrinsic{
+            signed:Default::default(),
+            index:0,
+            function:Call::Staking(staking::Call::transfer::<Concrete>(Default::default(), 69)),},
+        Default::default())),
+    ).unwrap();
     let transaction_pool = extrinsic_pool.inner.clone();
     let work = interval
         .map_err(|e| debug!("Timer error: {:?}", e))
@@ -306,20 +315,22 @@ fn main() {
                 {
                     let mut unqueue_invalid = Vec::new();
                     let result = transaction_pool.cull_and_get_pending(&BlockId::hash(best_header.hash()), |pending_iterator| {
-//                        let mut pending_size = 0;
-                        let pending_size = 0;
+                        let mut pending_size = 0;
+//                        let pending_size = 0;
                         for pending in pending_iterator {
-                             //skip and cull transactions which are too large.
-                            if pending.verified.encoded_size() > MAX_TRANSACTIONS_SIZE {
-                                unqueue_invalid.push(pending.hash().clone());
-                                continue
-                            }
-
-                            if pending_size + pending.verified.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
-
-                            println!("push transaction: {}",pending.hash().clone());
-                            println!("transaction origin data: {:?}",pending.original.clone());
-
+                            unqueue_invalid.push(pending.hash().clone());
+                            println!("delete transaction: {}",pending.hash().clone());
+//                             //skip and cull transactions which are too large.
+//                            if pending.verified.encoded_size() > MAX_TRANSACTIONS_SIZE {
+//                                unqueue_invalid.push(pending.hash().clone());
+//                                continue
+//                            }
+//
+//                            if pending_size + pending.verified.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
+//
+//                            println!("push transaction: {}",pending.hash().clone());
+//                            println!("transaction origin data: {:?}",pending.original.clone());
+//
 //                            match builder.push(pending.original.clone()) {
 //                                Ok(()) => {
 //                                    pending_size += pending.verified.encoded_size();
