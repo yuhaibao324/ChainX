@@ -9,6 +9,7 @@ extern crate substrate_bft as bft;
 extern crate substrate_rpc_servers as rpc_server;
 extern crate substrate_codec;
 extern crate substrate_runtime_staking as staking;
+extern crate substrate_keyring;
 
 extern crate chainx_primitives;
 extern crate chainx_executor;
@@ -33,12 +34,12 @@ use substrate_network_libp2p::AddrComponent;
 use substrate_network::specialization::Specialization;
 use substrate_network::{NodeIndex, Context, message};
 use substrate_network::StatusMessage as GenericFullStatus;
-use substrate_runtime_primitives::generic;
+use substrate_runtime_primitives::{generic,MaybeUnsigned};
 use substrate_network::TransactionPool as TPool;
-use chainx_primitives::{Block, Header, Hash};
-use chainx_runtime::{GenesisConfig, ConsensusConfig, CouncilConfig, DemocracyConfig,
-                     SessionConfig, StakingConfig, TimestampConfig,UncheckedExtrinsic,Extrinsic,Concrete,Call};
-use substrate_codec::Joiner;
+use substrate_keyring::Keyring;
+use chainx_primitives::{Hash, AccountId};
+use chainx_runtime::*;
+use substrate_codec::Encode;
 
 use futures::{Future, Stream};
 use tokio::runtime::Runtime;
@@ -201,6 +202,26 @@ pub fn fake_justify(header: &Header) -> bft::UncheckedJustification<Hash> {
     )
 }
 
+fn alice() -> AccountId {
+    AccountId::from(Keyring::Alice.to_raw_public())
+}
+
+pub fn xt() -> UncheckedExtrinsic {
+    let extrinsic = BareExtrinsic {
+        signed: alice(),
+        index: 0,
+        function: Call::Staking(staking::Call::transfer::<Concrete>(alice().into(), 69)),
+    };
+    let signature = MaybeUnsigned(Keyring::from_raw_public(extrinsic.signed.0.clone()).unwrap()
+        .sign(&extrinsic.encode()).into());
+    let extrinsic = Extrinsic {
+        signed: extrinsic.signed.into(),
+        index: extrinsic.index,
+        function: extrinsic.function,
+    };
+    UncheckedExtrinsic::new(extrinsic, signature)
+}
+
 // block size limit.
 const MAX_TRANSACTIONS_SIZE: usize = 4 * 1024 * 1024;
 
@@ -278,7 +299,7 @@ fn main() {
             extrinsic_pool.inner.clone(),
             task_executor.clone(),
         );
-        rpc_server::rpc_handler::<chainx_primitives::Block, chainx_primitives::Hash, _, _, _, _, _>(
+        rpc_server::rpc_handler::<Block, Hash, _, _, _, _, _>(
             state,
             chain,
             author,
@@ -297,13 +318,8 @@ fn main() {
     let network = NetworkService::new(param, DOT_PROTOCOL_ID).unwrap();
 
     let interval = Interval::new(Instant::now(), Duration::from_millis(TIMER_INTERVAL_MS));
-    let _txhash = extrinsic_pool.clone().import(&vec![].and(&UncheckedExtrinsic::new(
-        Extrinsic{
-            signed:Default::default(),
-            index:0,
-            function:Call::Staking(staking::Call::transfer::<Concrete>(Default::default(), 69)),},
-        Default::default())),
-    ).unwrap();
+    // insert one transaction
+    let _txhash = extrinsic_pool.clone().import(&xt()).unwrap();
     let transaction_pool = extrinsic_pool.inner.clone();
     let work = interval
         .map_err(|e| debug!("Timer error: {:?}", e))
@@ -316,7 +332,6 @@ fn main() {
                     let mut unqueue_invalid = Vec::new();
                     let result = transaction_pool.cull_and_get_pending(&BlockId::hash(best_header.hash()), |pending_iterator| {
                         let mut pending_size = 0;
-//                        let pending_size = 0;
                         for pending in pending_iterator {
                             unqueue_invalid.push(pending.hash().clone());
                             println!("delete transaction: {}",pending.hash().clone());
@@ -347,7 +362,7 @@ fn main() {
                         warn!("Unable to get the pending set: {:?}", e);
                     }
 
-                    transaction_pool.remove(&unqueue_invalid, false);
+                    //transaction_pool.remove(&unqueue_invalid, false);
                     println!("push transactions to block!");
                 }
 

@@ -32,7 +32,8 @@ pub use extrinsic_pool::{
 };
 
 use substrate_network;
-use chainx_primitives::{Block, Hash, BlockId, AccountId};
+use chainx_runtime::{Block, BlockId};
+use chainx_primitives::{Hash, AccountId};
 pub type CheckedExtrinsic =
     <UncheckedExtrinsic as Checkable<
         fn(Address)
@@ -183,7 +184,7 @@ impl TransactionPool {
     }
 }
 impl substrate_network::TransactionPool<Hash, Block> for TransactionPool {
-    fn transactions(&self) -> Vec<(Hash, Vec<u8>)> {
+    fn transactions(&self) -> Vec<(Hash, UncheckedExtrinsic)> {
         println!("-------------transactions-------------");
         let best_block_id = match self.best_block_id() {
             Some(id) => id,
@@ -206,7 +207,7 @@ impl substrate_network::TransactionPool<Hash, Block> for TransactionPool {
             })
     }
 
-    fn import(&self, transaction: &Vec<u8>) -> Option<Hash> {
+    fn import(&self, transaction: &UncheckedExtrinsic) -> Option<Hash> {
         println!("-------------import-------------");
         let encoded = transaction.encode();
         if let Some(uxt) = Decode::decode(&mut &encoded[..]) {

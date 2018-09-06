@@ -21,19 +21,6 @@ use rstd::prelude::*;
 use runtime_primitives::traits::BlakeTwo256;
 use runtime_primitives::generic;
 
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256, Vec<u8>>;
-
-/// Opaque, encoded, unchecked extrinsic.
-pub type UncheckedExtrinsic = Vec<u8>;
-
-/// A "future-proof" block type for Polkadot. This will be resilient to upgrades in transaction
-/// format, because it doesn't attempt to decode extrinsics.
-///
-/// Specialized code needs to link to (at least one version of) the runtime directly
-/// in order to handle the extrinsics within.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-
 /// An index to a block.
 /// 32-bits will allow for 136 years of blocks assuming 1 block per second.
 /// TODO: switch to u32
@@ -74,10 +61,6 @@ pub type Timestamp = u64;
 /// We round denomination to 10^12 (12 sdf), and leave the other redundancy at the upper end so
 /// that 32 bits may be multiplied with a balance in 128 bits without worrying about overflow.
 pub type Balance = u128;
-
-/// "generic" block ID for the future-proof block type.
-// TODO: parameterize blockid only as necessary.
-pub type BlockId = generic::BlockId<Block>;
 
 /*
 /// A log entry in the block.
