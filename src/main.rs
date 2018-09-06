@@ -320,27 +320,27 @@ fn main() {
                         for pending in pending_iterator {
                             unqueue_invalid.push(pending.hash().clone());
                             println!("delete transaction: {}",pending.hash().clone());
-//                             //skip and cull transactions which are too large.
-//                            if pending.verified.encoded_size() > MAX_TRANSACTIONS_SIZE {
-//                                unqueue_invalid.push(pending.hash().clone());
-//                                continue
-//                            }
-//
-//                            if pending_size + pending.verified.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
-//
-//                            println!("push transaction: {}",pending.hash().clone());
-//                            println!("transaction origin data: {:?}",pending.original.clone());
-//
-//                            match builder.push(pending.original.clone()) {
-//                                Ok(()) => {
-//                                    pending_size += pending.verified.encoded_size();
-//                                    println!("push transaction: {}",pending.hash().clone());
-//                                }
-//                                Err(e) => {
-//                                    trace!(target: "transaction-pool", "Invalid transaction: {}", e);
-//                                    unqueue_invalid.push(pending.hash().clone());
-//                                }
-//                            }
+                             //skip and cull transactions which are too large.
+                            if pending.verified.encoded_size() > MAX_TRANSACTIONS_SIZE {
+                                unqueue_invalid.push(pending.hash().clone());
+                                continue
+                            }
+
+                            if pending_size + pending.verified.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
+
+                            println!("push transaction: {}",pending.hash().clone());
+                            println!("transaction origin data: {:?}",pending.original.clone());
+
+                            match builder.push(pending.original.clone()) {
+                                Ok(()) => {
+                                    pending_size += pending.verified.encoded_size();
+                                    println!("push transaction: {}",pending.hash().clone());
+                                }
+                                Err(e) => {
+                                    trace!(target: "transaction-pool", "Invalid transaction: {}", e);
+                                    unqueue_invalid.push(pending.hash().clone());
+                                }
+                            }
                         }
                     });
                     if let Err(e) = result {

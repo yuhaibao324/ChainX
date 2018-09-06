@@ -138,7 +138,7 @@ impl ChainApi for PoolApi {
     }
 
     fn compare(_old: &VerifiedFor<Self>, _other: &VerifiedFor<Self>) -> Ordering {
-        Ordering::Less
+        Ordering::Equal
     }
 
     fn choose(_old: &VerifiedFor<Self>, _new: &VerifiedFor<Self>) -> scoring::Choice {
