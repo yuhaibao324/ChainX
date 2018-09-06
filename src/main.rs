@@ -31,6 +31,7 @@ use substrate_network_libp2p::AddrComponent;
 use substrate_network::specialization::Specialization;
 use substrate_network::{NodeIndex, Context, message};
 use substrate_network::StatusMessage as GenericFullStatus;
+use substrate_runtime_primitives::generic;
 use chainx_primitives::{Block, Header, Hash};
 use chainx_runtime::{GenesisConfig, ConsensusConfig, CouncilConfig, DemocracyConfig,
                      SessionConfig, StakingConfig, TimestampConfig};
@@ -44,8 +45,7 @@ use std::iter;
 use std::net::{Ipv4Addr, IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
-use chainx_pool::pool::{TransactionPool, PoolApi};
-
+use chainx_pool::pool::{TransactionPool, PoolApi, VerifiedTransaction};
 
 pub struct Protocol;
 
@@ -94,6 +94,8 @@ impl Specialization<Block> for Protocol {
         println!("on_block_imported!");
     }
 }
+
+pub type BlockId = generic::BlockId<Block>;
 
 pub type NetworkService = substrate_network::Service<Block, Protocol, Hash>;
 
@@ -194,6 +196,9 @@ pub fn fake_justify(header: &Header) -> bft::UncheckedJustification<Hash> {
     )
 }
 
+// block size limit.
+const MAX_TRANSACTIONS_SIZE: usize = 4 * 1024 * 1024;
+
 //#[warn(unused_must_use)]
 fn main() {
     let matches = App::new("chainx")
@@ -287,13 +292,47 @@ fn main() {
     let network = NetworkService::new(param, DOT_PROTOCOL_ID).unwrap();
 
     let interval = Interval::new(Instant::now(), Duration::from_millis(TIMER_INTERVAL_MS));
+    let transaction_pool = extrinsic_pool.inner.clone();
     let work = interval
         .map_err(|e| debug!("Timer error: {:?}", e))
         .for_each(move |_| {
             let best_header = client.best_block_header().unwrap();
             println!("Best block: #{}", best_header.number);
             if let Some(_) = matches.subcommand_matches("validator") {
-                let builder = client.new_block().unwrap();
+                let mut builder = client.new_block().unwrap();
+                {
+                    //  let txhash = transaction_pool.import(&vec![1u8, 2]).unwrap();
+                    let mut unqueue_invalid = Vec::new();
+                    let result = transaction_pool.cull_and_get_pending(&BlockId::hash(best_header.hash()), |pending_iterator| {
+                        //   let mut pending_size = 0;
+                        for pending in pending_iterator {
+                            // skip and cull transactions which are too large.
+//                            if pending.encoded_size() > MAX_TRANSACTIONS_SIZE {
+//                                unqueue_invalid.push(pending.hash().clone());
+//                                continue
+//                            }
+//
+//                            if pending_size + pending.encoded_size() >= MAX_TRANSACTIONS_SIZE { break }
+                            //match block_builder.push_extrinsic(pending.primitive_extrinsic()) {
+                            match builder.push(pending.original.clone()) {
+                                Ok(()) => {
+                                    //     pending_size += pending.encoded_size();
+                                    println!("push transaction: {}",pending.hash().clone());
+                                }
+                                Err(e) => {
+                                    trace!(target: "transaction-pool", "Invalid transaction: {}", e);
+                                    unqueue_invalid.push(pending.hash().clone());
+                                }
+                            }
+                        }
+                    });
+                    if let Err(e) = result {
+                        warn!("Unable to get the pending set: {:?}", e);
+                    }
+
+                    transaction_pool.remove(&unqueue_invalid, false);
+                    println!("push transactions to block!");
+                }
                 let block = builder.bake().unwrap();
                 let block_header = block.header.clone();
                 let hash = block_header.hash();
