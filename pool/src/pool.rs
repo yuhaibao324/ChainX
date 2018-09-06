@@ -16,7 +16,7 @@ use substrate_primitives::{KeccakHasher, RlpCodec};
 use substrate_client::{self, Client};
 
 
-use extrinsic_pool::{
+pub use extrinsic_pool::{
     Pool,
     ChainApi,
     VerifiedFor,
@@ -121,18 +121,24 @@ impl ChainApi for PoolApi {
 
 
 	fn verify_transaction(&self, at: &BlockId, xt: &ExtrinsicFor<Self>) -> Result<Self::VEx, Self::Error> {
-		let encoded = xt.encode();
-		let uxt = UncheckedExtrinsic::decode(&mut encoded.as_slice());
-
-		let hash = BlakeTwo256::hash(&uxt.encode());
-		let xt = uxt.clone();
+		let hash = BlakeTwo256::hash(&xt.encode());
 		Ok(VerifiedExtrinsic {
 			sender: hash,	//error TODO
 			hash,
 		})
 	}
-	
 
+    /*
+    fn verify_transaction(&self, _at: &BlockId, uxt: &ExtrinsicFor<Self>) -> Result<Self::VEx, Self::Error> {
+        let hash = BlakeTwo256::hash(&uxt.encode());
+        let xt = uxt.clone().check()?;
+        Ok(VerifiedTransaction {
+            hash,
+            sender: uxt.transfer.from[31] as u64,
+            nonce: xt.transfer.nonce,
+        })
+    }
+*/
     fn ready(&self) -> Self::Ready {
 
         HashMap::default()
@@ -159,7 +165,7 @@ impl ChainApi for PoolApi {
 			Ordering::Less => Readiness::Stale,
 		};
 		*/
-		
+
 		let result = Readiness::Ready;
 		// remember to increment `next_index`
 		*next_index = next_index.saturating_add(1);
