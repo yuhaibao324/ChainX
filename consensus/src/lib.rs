@@ -290,14 +290,17 @@ where
     fn round_proposer(&self, round_number: usize, authorities: &[AuthorityId]) -> AuthorityId {
         let offset = self.primary_index(round_number, authorities.len());
         let proposer = authorities[offset].clone();
-        debug!(target: "bft", "proposer for round {} is {}", round_number, proposer);
+        info!(target: "bft", "proposer for round {} is {}", round_number, proposer);
 
         proposer
     }
 
-    fn import_misbehavior(&self, _misbehavior: Vec<(AuthorityId, bft::Misbehavior<Hash>)>) {}
+    fn import_misbehavior(&self, misbehavior: Vec<(AuthorityId, bft::Misbehavior<Hash>)>) {
+       info!("--------import_misbehavior");
+    }
 
     fn on_round_end(&self, round_number: usize, was_proposed: bool) {
+        info!("------------on_round_end round_numer:{}, was_proposed:{}", round_number, was_proposed);
         let primary_validator =
             self.validators[self.primary_index(round_number, self.validators.len())];
 
