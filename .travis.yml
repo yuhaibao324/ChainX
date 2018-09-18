@@ -71,7 +71,7 @@ before_install:
   - rustup target add wasm32-unknown-unknown --toolchain nightly
   - rustup update stable
   - cargo install --git https://github.com/alexcrichton/wasm-gc
-  - apt install cmake pkg-config libssl-dev
+  - sudo apt install -y cmake pkg-config libssl-dev
 
 install:
   - sh ci/install.sh
