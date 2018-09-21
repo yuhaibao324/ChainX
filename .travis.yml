@@ -22,7 +22,7 @@ before_install:
   - cargo install --git https://github.com/alexcrichton/wasm-gc
   - sudo apt update
   - sudo apt install -y pkg-config libssl-dev
-  - bash ci/cmake.sh 3.5.1
+  - sudo bash ci/cmake.sh 3.5.1
 
 script:
   - cargo build
